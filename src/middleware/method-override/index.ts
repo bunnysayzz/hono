@@ -95,8 +95,14 @@ export const methodOverride = (options: MethodOverrideOptions): MiddlewareHandle
         if (method) {
           delete params[methodFormName]
           const newParams = new URLSearchParams(params)
+          const newHeaders = new Headers(newRequest.headers)
+          // The body was rewritten without the override field, so the original
+          // Content-Length no longer matches. Drop it like the multipart branch
+          // does and let the runtime recalculate it.
+          newHeaders.delete('content-length')
           const request = new Request(newRequest, {
             body: newParams,
+            headers: newHeaders,
             method: method as string,
           })
           return app.fetch(request, c.env, getExecutionCtx(c))

@@ -122,6 +122,32 @@ describe('Method Override Middleware', () => {
         })
         expect(res.status).toBe(404)
       })
+
+      it('Should drop stale Content-Length when the urlencoded body is rewritten', async () => {
+        const lengthApp = new Hono()
+        lengthApp.use('/posts', methodOverride({ app: lengthApp }))
+        lengthApp.delete('/posts', async (c) => {
+          const body = await c.req.text()
+          return c.json({
+            body,
+            contentLength: c.req.header('content-length') ?? null,
+          })
+        })
+        const res = await lengthApp.request('/posts', {
+          method: 'POST',
+          body: '_method=DELETE&message=Hello',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': '28',
+          },
+        })
+        expect(res.status).toBe(200)
+        const data = await res.json()
+        expect(data.body).toBe('message=Hello')
+        // 28 was the length before _method was removed; the rewritten
+        // request must not keep it
+        expect(data.contentLength).not.toBe('28')
+      })
     })
   })
 
